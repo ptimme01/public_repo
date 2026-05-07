@@ -1,0 +1,46 @@
+import requests
+from bs4 import BeautifulSoup
+
+from langchain_ollama import ChatOllama
+from langchain_core.tools import tool
+from langgraph.prebuilt import create_react_agent
+
+
+@tool
+def get_h1_header(url: str) -> str:
+    """Fetch a web page and return the text of the first H1 header."""
+    response = requests.get(url, timeout=10)
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    h1 = soup.find("h1")
+
+    if not h1:
+        return "No H1 header found."
+
+    return h1.get_text(strip=True)
+
+
+def main():
+    llm = ChatOllama(
+        model="qwen3.5:9b",
+        base_url="http://localhost:11434",
+        temperature=0,
+    )
+
+    agent = create_react_agent(
+        model=llm,
+        tools=[get_h1_header],
+    )
+
+    result = agent.invoke({
+        "messages": [
+            ("user", "Go to https://example.com and tell me the H1 header text.")
+        ]
+    })
+
+    print(result["messages"][-1].content)
+
+
+if __name__ == "__main__":
+    main()
